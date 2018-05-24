@@ -32,23 +32,23 @@ parser.add_argument('--output', '-o', type=str,
                     help='folder where to save the results')
 parser.add_argument('--type', type=str, default = 'product',
                     help='which loss function?')
-parser.add_argument('--optim', type=str, default = 'sgd',
+parser.add_argument('--optim', type=str, default = 'adagrad',
                     help='optimization algorithm')
 parser.add_argument('--embedding_file', type=str, default=None)
-parser.add_argument('--dim', type=int, dest='dim', default=2, help='dimension of the embeddings')
+parser.add_argument('--dim', type=int, dest='dim', default= 12, help='dimension of the embeddings')
 parser.add_argument('--learning_rate', '-lr', type=float, dest='lr', default=1E-1)
-parser.add_argument('--margin', type=float, default=1E-1, help='margin in the hinge loss ("product" type only)')
-parser.add_argument('--final_lr', type=float, default=1E-6)
+parser.add_argument('--margin', type=float, default=10, help='margin in the hinge loss ("product" type only)')
+parser.add_argument('--final_lr', type=float, default=1E-1)
 parser.add_argument('--var_scale', type=float, default=1.0)
-parser.add_argument('--lbda', type=float, default=1E-1)
+parser.add_argument('--lbda', type=float, default=1E-2)
 parser.add_argument('--epoches', '-e', type=int, default=10)
-parser.add_argument('--epsilon', type=float, default=1E0, help = 'the initial value in RMSprop or adagrad')
+parser.add_argument('--epsilon', type=float, default=1E-8, help = 'the initial value in RMSprop or adagrad')
 parser.add_argument('--batch_size', '-b', type=int, dest='batch_size', default=10000)
 parser.add_argument('--window_size', '-w', type=int, default=5)
 parser.add_argument('--min_word_occ', '-mw', type=int, default=100)
-parser.add_argument('--neg_samples', '-ng', type=int, default=2)
-parser.add_argument('--chunk_size', '-cs', type=int, default=10000)
-parser.add_argument('--num_sqrt_iters', type=int, default=2)
+parser.add_argument('--neg_samples', '-ng', type=int, default=1)
+parser.add_argument('--chunk_size', '-cs', type=int, default=250000)
+parser.add_argument('--num_sqrt_iters', type=int, default=6)
 parser.add_argument('--cn', type=float, default=1,
                     help='the means to Bures coefficient for learning ellipse embeddings')
 parser.add_argument('--chunks_dir', type=str, default='',
@@ -120,7 +120,7 @@ with open(os.path.join(args.output, 'parameter_summary'), 'w') as summary_file:
 
 logging.info("Start training")
 
-DECAY = (args.lr - args.final_lr) / (args.epoches * 2.5E9 / args.batch_size)
+DECAY = (args.lr - args.final_lr) / (args.epoches * 1E3 / args.batch_size)
 
 for epoch in range(args.epoches):
 
@@ -133,7 +133,7 @@ for epoch in range(args.epoches):
     while data.process:
         batch_start = time.time()
         #TODO: delete the zero words when generating batches ?
-        i, j, neg_i, neg_j = data.generate_batch(args.window_size, args.batch_size, num_neg=args.neg_samples, cuda=CUDA)
+        i, j, neg_i, neg_j = data.generate_batch(args.window_size, args.batch_size, num_neg=args.neg_samples)
         i_ = i[i != 0]
         j_ = j[i != 0]
         neg_i_ = neg_i[neg_i != 0]
@@ -152,7 +152,6 @@ for epoch in range(args.epoches):
         moving_average += loss
 
         w_model.lr = max(w_model.lr - DECAY, args.final_lr)
-        w_model.mean_lr = w_model.lr
 
         #TODO: report_each instead
         if niter % int(1E6 / args.batch_size) == 0:

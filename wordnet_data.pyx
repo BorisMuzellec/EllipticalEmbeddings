@@ -19,44 +19,34 @@ import pandas as pd
 import pickle as pkl
 import os
 import copy
-from cy_sample import cython_get_sample
+from sampling import get_sample
 
 from collections import Counter
 import random
 
-#from six.moves import urllib
-from six.moves import xrange  # pylint: disable=redefined-builtin
+# pylint: disable=redefined-builtin
 
 
 cdef class Options(object):
 
   cdef int data_index
   cdef int sample_n
-  cdef char* save_path, datafile
+  cdef str save_path, datafile
   cdef public np.ndarray train_data, sample_table, _node_probabilities
   cdef public np.ndarray vocabulary
   cdef public dict word_to_index, relations_dict
   cpdef public bint process
   cpdef set indices_set
   cdef public long vocabulary_size, table_size
-  cpdef public bint undirected
-    
-  def __cinit__(self, datafile, char* save_path = 'data', bint undirected = True):
+
+  def __cinit__(self, datafile, str save_path = 'data'):
       self.save_path = save_path
   
       self.vocabulary, data_or = self.read_data(datafile)
-      self.undirected = undirected
-      self.word_to_index, self.train_data, self.relations_dict = self.build_dataset(data_or, self.undirected)
+      self.word_to_index, self.train_data, self.relations_dict = self.build_dataset(data_or)
 
       self.vocabulary_size = len(self.vocabulary)
       self.indices_set = set(range(self.vocabulary_size))
-
-      # if not os.path.isfile('wnet_sample_table.pkl'):
-      #   self.sample_table = self.init_sample_table()
-      #   with open('wnet_sample_table.pkl', 'w') as sample_file:
-      #       pkl.dump(self.sample_table, sample_file)
-      # else:
-      #   self.sample_table = pkl.loadopen('wnet_sample_table.pkl', 'rb')
 
       self.sample_table = self.init_sample_table()
       self.table_size = len(self.sample_table)
@@ -77,13 +67,11 @@ cdef class Options(object):
       del data_or
 
     
-  def read_data(self, char* filename):
+  def read_data(self, str filename):
       df = pd.read_csv(filename, sep = '\t', header = None)
-      # df[0] = df[0].apply(lambda x: x.split('.')[0])
-      # df[1] = df[1].apply(lambda x: x.split('.')[0])
       return (df[0].append(df[1])).unique(), df.get_values()
 
-  cpdef tuple build_dataset(self, data_or, undirected):
+  cpdef tuple build_dataset(self, data_or):
       """Process raw inputs into a ."""
       cpdef dict dictionary = {}
       cpdef dict relations_dict = {}
@@ -92,7 +80,7 @@ cdef class Options(object):
       cdef list item_relations
       cdef int n_words = len(self.vocabulary)
       cpdef int data_length
-      data_length = data_or.shape[0] if undirected else 2 * data_or.shape[0]
+      data_length = 2 * data_or.shape[0]
       cdef np.ndarray[np.int_t, ndim = 2] data = np.empty((data_length, data_or.shape[1]), dtype = np.int)
     
       for i in range(n_words):
@@ -106,14 +94,9 @@ cdef class Options(object):
           relations_dict[data[i][1]].add(data[i][0])
 
        #Same data with inversed roles (for symmetry)
-      if not undirected:
-          for i in range(len(data_or), 2*len(data_or)):
-              data[i][0] = dictionary[data_or[i - len(data_or)][1]]
-              data[i][1] = dictionary[data_or[i - len(data_or)][0]]
-
-      # for i in range(n_words):
-      #     item_relations = list(set(df[df[0] == self.vocabulary[i]][1]).union(set(df[df[1] == self.vocabulary[i]][0])))
-      #     relations_dict[i] = [dictionary[item] for item in item_relations]
+      for i in range(len(data_or), 2*len(data_or)):
+          data[i][0] = dictionary[data_or[i - len(data_or)][1]]
+          data[i][1] = dictionary[data_or[i - len(data_or)][0]]
         
       return dictionary, data, relations_dict
 
@@ -122,7 +105,7 @@ cdef class Options(object):
     maps['idx_to_word'] = self.vocabulary
     maps['word_to_idx'] = self.word_to_index
     #maps['relation_dict'] = self.relations_dict
-    with open(self.save_path, "w") as f:
+    with open(self.save_path, "wb") as f:
         pkl.dump(maps, f)
         
   cpdef np.ndarray init_sample_table(self):
@@ -131,12 +114,9 @@ cdef class Options(object):
       #return np.arange(len(self.vocabulary))
       return np.array([self.train_data[i][0] for i in range(len(self.train_data))] + [self.train_data[i][1] for i in range(len(self.train_data))])
       # for i in range(self.vocabulary_size):
-      #     sample_table[i] = np.array(list(self.indices_set - self.relations_dict[i]))
+      #     sample_table[i] = np.array(list(self.indices_set - self.relations_dict[i])
 
-      return sample_table
-
-
-  cpdef tuple generate_batch(self, int batch_size, int num_neg, bint cuda = True):
+  cpdef tuple generate_batch(self, int batch_size, int num_neg):
     cdef np.ndarray[np.int_t, ndim = 2] data
     cdef list neg_samples
     cpdef np.ndarray[np.int_t, ndim=1] pos_u = np.empty(batch_size, dtype=np.int)

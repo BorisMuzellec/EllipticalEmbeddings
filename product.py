@@ -23,7 +23,6 @@ class EllProduct():
         self.lbda = lbda
         self.margin = margin
         self.lr = lr
-        self.mean_lr = lr
         self.num_sqrt_iters = num_sqrt_iters
         self.scale = cp.sqrt(3.0 / self.n_dim)
         self.optim = optim
@@ -126,7 +125,7 @@ class EllProduct():
         neg = neg_xj / self.num_neg
 
         # grad_i, grad_j, grad_nj
-        return  ((- pos + neg.reshape(-1, self.num_neg, self.n_dim).sum(axis=1)) * mask.reshape(-1, 1) + 2 * self.mean_reg * xi).reshape(-1, self.window_size, self.n_dim).sum(axis=1), \
+        return  ((- pos + neg.reshape(-1, self.num_neg, self.n_dim).sum(axis=1)) * mask.reshape(-1, 1)).reshape(-1, self.window_size, self.n_dim).sum(axis=1), \
                 - xi * mask.reshape(-1, 1), \
                 neg_xi * mask.repeat(self.num_neg).reshape(-1, 1) / self.num_neg
 
@@ -138,7 +137,7 @@ class EllProduct():
         pos_j = wb.batch_log(vj, vi, sV=v_i_s, inv=inv_ij, numIters = self.num_sqrt_iters, prod = True)
         neg_j_ = wb.batch_log(neg_vj, neg_vi, sV=v_n_i_s, inv=inv_n_ij, numIters=self.num_sqrt_iters, prod = True)
 
-        return ((- (cp.matmul(pos_i, lvi)) + (cp.matmul(neg_i_, lneg_vi)).reshape(-1, self.num_neg, self.n_dim, self.n_dim).sum(axis=1)) * mask.reshape(-1, 1, 1)).reshape(-1, self.window_size, self.n_dim, self.dim2).sum(axis=1), \
+        return ((- (cp.matmul(pos_i, lvi)) + (cp.matmul(neg_i_, lneg_vi)).reshape(-1, self.num_neg, self.n_dim, self.n_dim).sum(axis=1)) * mask.reshape(-1, 1, 1)).reshape(-1, self.window_size, self.n_dim, self.n_dim).sum(axis=1), \
                  - (cp.matmul(pos_j, lvj)) * mask.reshape(-1, 1, 1), \
                 (cp.matmul(neg_j_, lneg_vj)) * mask.repeat(self.num_neg).reshape(-1, 1, 1) / self.num_neg #+ 2 * self.var_reg * lneg_vj
 
@@ -177,8 +176,8 @@ class EllProduct():
 
         else:
 
-            self.means[i_idxs] -= self.mean_lr * m_grad_i_acc
-            self.c_means[j_idxs] -= self.mean_lr * m_grad_j_acc
+            self.means[i_idxs] -= self.lr * m_grad_i_acc
+            self.c_means[j_idxs] -= self.lr * m_grad_j_acc
 
             self.vars[i_idxs] -= self.lr * self.Cn * v_grad_i_acc
             self.c_vars[j_idxs] -= self.lr * self.Cn * v_grad_j_acc

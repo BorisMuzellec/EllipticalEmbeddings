@@ -82,7 +82,7 @@ cdef class Options(object):
     if not os.path.isfile((os.path.join(self.save_data, 'sample_table.pkl'))):
         self.sample_table = self.init_sample_table()
     else:
-        self.sample_table = pkl.load(open(os.path.join(self.save_data, 'sample_table.pkl'), 'r'))
+        self.sample_table = pkl.load(open(os.path.join(self.save_data, 'sample_table.pkl'), 'rb'))
 
     self.table_size = len(self.sample_table)
     np.random.shuffle(self.sample_table) #allows efficient sampling
@@ -91,7 +91,7 @@ cdef class Options(object):
     self.data_index = 0
     self.sample_n = 0
     self.current_file_idx = 0
-    with open(os.path.join(self.save_data, self.train_files[0]), "r") as train_file:
+    with open(os.path.join(self.save_data, self.train_files[0]), "rb") as train_file:
         self.current_train_data = pkl.load(train_file)
         
   cpdef void build_from_files(self, str datadir):
@@ -103,10 +103,10 @@ cdef class Options(object):
           if file.split('_')[-2] == 'sampling':
               self.train_files.append(file)
       
-      with open(os.path.join(datadir, 'count_dict.pkl'), "r") as countfile:
+      with open(os.path.join(datadir, 'count_dict.pkl'), "rb") as countfile:
           self.count = pkl.load(countfile)
 
-      with open(os.path.join(datadir, 'vocab_words.pkl'), "r") as vocabfile:
+      with open(os.path.join(datadir, 'vocab_words.pkl'), "rb") as vocabfile:
           self.vocab_words = pkl.load(vocabfile)
     
   cpdef tuple read_data(self, list filenames):
@@ -116,28 +116,30 @@ cdef class Options(object):
     cpdef list chunk
     cpdef list lines
     cpdef str filename
-    count = Counter() 
+    count = Counter()
+    translator = str.maketrans('', '', string.punctuation)
     
     for filename in filenames:
         i = 0
         
-        with open(filename, 'r') as f:
+        with open(filename, 'rt', errors='surrogateescape') as f:
             
             while True:
                 lines = list(islice(f, self.chunk_size))
                 if not lines:
                     break
                 
-                chunk = (' '.join([line for line in lines if not line.startswith('CURRENT URL')])).translate(None, string.punctuation).lower().split()
+                #chunk = (' '.join([line for line in lines if not line.startswith(b'CURRENT URL')])).translate(None, string.punctuation).lower().split()
+                chunk = (' '.join([line for line in lines if not line.startswith('CURRENT URL')])).translate(translator).lower().split()
                 count.update(chunk)
                 
-                with open(os.path.join(self.save_chunks, filename.split('/')[-1] + "_chunk_" + str(i)), 'w') as chunk_file:
+                with open(os.path.join(self.save_chunks, filename.split('/')[-1] + "_chunk_" + str(i)), 'wb') as chunk_file:
                     pkl.dump(chunk, chunk_file)
                     chunk_files.append(filename.split('/')[-1] + "_chunk_" + str(i))
                     
                 i += 1
         
-    print("Done chunkifying")
+    logging.info("Done chunkifying")
     return count, chunk_files
     
   cpdef tuple read_data_from_chunks(self):
@@ -150,7 +152,7 @@ cdef class Options(object):
     for filename in tqdm.tqdm(os.listdir(self.save_chunks)):
         
         if filename.split('_')[-2] == 'chunk':
-            with open(os.path.join(self.save_chunks, filename), 'r') as f:
+            with open(os.path.join(self.save_chunks, filename), 'rb') as f:
                 data = pkl.load(f)
                 count.update(data)
                 chunk_files.append(filename)
@@ -186,8 +188,7 @@ cdef class Options(object):
     cpdef dict P = {}
     cdef double x
     cdef double y
-    cdef char* filename
-      
+
     counts = np.array([ele[1] for ele in count])
     frequency = counts / float(sum(counts))
     
@@ -202,7 +203,7 @@ cdef class Options(object):
         
         data = list()
         
-        with open(os.path.join(self.save_chunks, filename), 'r') as file:
+        with open(os.path.join(self.save_chunks, filename), 'rb') as file:
             chunk = pkl.load(file)
             
         for i in xrange(len(chunk)):
@@ -213,7 +214,7 @@ cdef class Options(object):
             if random.random()<P[index]:
                 data.append(index)
           
-        with open(os.path.join(self.save_data, '_'.join(filename.split('_')[:-2]) + "_sampling_" + filename.split('_')[-1]), 'w') as sample_file:
+        with open(os.path.join(self.save_data, '_'.join(filename.split('_')[:-2]) + "_sampling_" + filename.split('_')[-1]), 'wb') as sample_file:
             pkl.dump(data, sample_file)
             sample_files.append('_'.join(filename.split('_')[:-2]) + "_sampling_" + filename.split('_')[-1])
     
@@ -221,13 +222,13 @@ cdef class Options(object):
     
     #Save everything
     
-    with open(os.path.join(self.save_data, 'count_dict.pkl'), 'w') as countfile:
+    with open(os.path.join(self.save_data, 'count_dict.pkl'), 'wb') as countfile:
           pkl.dump(count, countfile)
 
-    with open(os.path.join(self.save_data, 'vocab_words.pkl'), 'w') as vocab_words:
+    with open(os.path.join(self.save_data, 'vocab_words.pkl'), 'wb') as vocab_words:
           pkl.dump(reversed_dictionary, vocab_words)
 
-    with open(os.path.join(self.save_data, 'words_to_idxs.pkl'), 'w') as dictfile:
+    with open(os.path.join(self.save_data, 'words_to_idxs.pkl'), 'wb') as dictfile:
           pkl.dump(dictionary, dictfile)
           
     return sample_files, count, reversed_dictionary
@@ -250,7 +251,7 @@ cdef class Options(object):
     for idx in xrange(1, len(ratio_count)):
       sample_table += [idx]*int(ratio_count[idx])
 
-    with open(os.path.join(self.save_data, 'sample_table.pkl'), 'w') as sample_file:
+    with open(os.path.join(self.save_data, 'sample_table.pkl'), 'wb') as sample_file:
       pkl.dump(np.array(sample_table), sample_file)
 
     return np.array(sample_table)
@@ -264,7 +265,7 @@ cdef class Options(object):
     ratio = pow_frequency / float(power)
     return ratio
 
-  cpdef tuple generate_batch(self, int window_size, int batch_size, int num_neg, bint cuda = True):
+  cpdef tuple generate_batch(self, int window_size, int batch_size, int num_neg):
     cdef list data
     cpdef int span = 2 * window_size + 1
     cpdef np.ndarray[long, ndim = 1] neg_v, labels
@@ -288,7 +289,7 @@ cdef class Options(object):
           self.sample_n = 0
           self.current_file_idx = 0
                 
-      with open(os.path.join(self.save_data,self.train_files[self.current_file_idx]), "r") as train_file:
+      with open(os.path.join(self.save_data,self.train_files[self.current_file_idx]), "rb") as train_file:
         self.current_train_data = pkl.load(train_file)
       
     for i in range(span):
@@ -313,7 +314,7 @@ cdef class Options(object):
                 np.random.shuffle(self.train_files)
                 self.current_file_idx = 0
 
-            with open(os.path.join(self.save_data,self.train_files[self.current_file_idx]), "r") as train_file:
+            with open(os.path.join(self.save_data,self.train_files[self.current_file_idx]), "rb") as train_file:
                 logging.info("Opening %s \n" % os.path.join(self.save_data,self.train_files[self.current_file_idx]))
                 self.current_train_data = pkl.load(train_file)
 
@@ -327,11 +328,8 @@ cdef class Options(object):
 
             self.sample_n += 1
 
-            if cuda:
-                return cp.array(pos_u), cp.array(pos_v), cp.array(neg_u), cp.array(neg_v)
-            else:
-                return pos_u, pos_v, neg_u, neg_v
-        
+            return cp.array(pos_u), cp.array(pos_v), cp.array(neg_u), cp.array(neg_v)
+
         else:
             for j in range(span):
                 buffer[j] = data[self.data_index + j]
@@ -346,11 +344,9 @@ cdef class Options(object):
                               sample_size = num_neg * batch_size * 2 * window_size, fast = True)
     
     self.sample_n += 1
-    
-    if cuda:
-        return cp.array(pos_u), cp.array(pos_v), cp.array(neg_u), cp.array(neg_v)
-    else:
-        return pos_u, pos_v, neg_u, neg_v
+
+    return cp.array(pos_u), cp.array(pos_v), cp.array(neg_u), cp.array(neg_v)
+
 
 
 
