@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 
 
 class EllSoftmax():
-    def __init__(self, n_points, n_dim, lr=1E-1, num_neg=1, margin=0.1, window_size=10,
+    def __init__(self, n_points, n_dim, lr=1E-1, num_neg=1, window_size=10,
                  num_sqrt_iters=5, Cn=1, lbda = 1E-8,
                  scale=0.5, embedding_file=None, optim='rmsprop', epsilon=1E-8, unknown_words=True,
                  sep_input_output=True):
@@ -22,7 +22,6 @@ class EllSoftmax():
         self.window_size = window_size
         self.loss = 0
         self.Cn = Cn
-        self.margin = margin
         self.lr = lr
         self.lbda = lbda
         self.num_sqrt_iters = num_sqrt_iters

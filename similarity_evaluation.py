@@ -85,8 +85,9 @@ def calculate_correlation(data_loader, w2g, verbose=True, lower=False, metric='b
     word1, word2, targets = data_loader()
 
     if lower:
-        word1 = [str.encode(word.lower()) for word in word1]
-        word2 = [str.encode(word.lower()) for word in word2]
+        word1 = [word.lower() for word in word1]
+        word2 = [word.lower() for word in word2]
+
 
     mask = [(w1 in w2g.words_to_idxs and w2 in w2g.words_to_idxs) for (w1,w2) in zip(word1, word2)]
     word1, word2, targets = np.array(word1)[mask], np.array(word2)[mask], np.array(targets)[mask]
@@ -156,7 +157,7 @@ eval_datasets_names = ['SL', 'WS', 'WS-S', 'WS-R', 'MEN',
 
 # performs quantitative evaluation in a batch
 def quantitative_eval(model_names, vocab_path, prefix_dir='', metrics = ['bures_cosine'],
-                      lower=False, verbose=False, type = 'full', embedds = 'input', device=0, numIters=20, output_path=None):
+                      lower=False, verbose=False, embedds = 'input', device=0, numIters=20, output_path=None):
     # model_names is a list of pairs (model_abbreviation, save_path)
 
     spearman_corrs = pd.DataFrame()
@@ -170,7 +171,7 @@ def quantitative_eval(model_names, vocab_path, prefix_dir='', metrics = ['bures_
         if True:
             if verbose:print('dir path =', dir_path)
             save_path_full = os.path.join(dir_path, prefix_dir, save_path)
-            w2g = EllEmbeddings(vocab_path, save_path, type=type, device=device)
+            w2g = EllEmbeddings(vocab_path, save_path, device=device)
             for metric in metrics:
                 results = []
                 for dgen in eval_datasets:

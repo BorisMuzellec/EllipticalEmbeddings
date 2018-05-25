@@ -110,7 +110,7 @@ def main(embedding_file=args.embeddings, hypernym_file=args.data, device=args.de
 
     for i, idx in tqdm.tqdm(enumerate(idxs1)):
         x = [idx] * m
-        if args.metric == "distance":
+        if args.metric == "bures_distance":
             dists_ = wb.batch_W2(cp.array(means[x]), cp.array(means[idxs]), cp.array(vars[x]), cp.array(vars[idxs]))[0]
             item_distances = cp.asnumpy(dists_)
         elif args.metric == "bures_cosine":

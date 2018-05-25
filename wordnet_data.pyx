@@ -61,7 +61,6 @@ cdef class Options(object):
       self.data_index = 0
       self.sample_n = 0
 
-
     
       #Release some RAM
       del data_or

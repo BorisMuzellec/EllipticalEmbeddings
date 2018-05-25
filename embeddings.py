@@ -10,20 +10,16 @@ import pickle as pkl
 
 FORMAT = '%(asctime)-15s %(message)s'
 
-
-#TODO: no more diag type, only full
 class EllEmbeddings():
-    def __init__(self, vocab_path, embeddings_file, device=0):
+    def __init__(self, vocab_dir, embeddings_file, device=0):
 
         cp.cuda.Device.use(cp.cuda.Device(device))
 
-        self.type = type
-
-        self.vocab_path = vocab_path
+        self.vocab_dir = vocab_dir
         self.embeddings_file = embeddings_file
 
-        self.vocab_words= self.load_idx_to_word(self.vocab_path)
-        self.words_to_idxs = self.load_word_to_idxs(self.vocab_path)
+        self.vocab_words= self.load_idx_to_word(self.vocab_dir)
+        self.words_to_idxs = self.load_word_to_idxs(self.vocab_dir)
 
         embeddings = self.load_embeddings(self.embeddings_file)
 
@@ -35,16 +31,16 @@ class EllEmbeddings():
 
         self.n_points, self.n_dim = self.means.shape[0], self.means.shape[1]
 
-    def load_idx_to_word(self, vocab_path):
+    def load_idx_to_word(self, vocab_dir):
 
-        with open(os.path.join(vocab_path, 'vocab_words.pkl'), 'rb') as vocabfile:
+        with open(os.path.join(vocab_dir, 'vocab_words.pkl'), 'rb') as vocabfile:
             vocab_words = pkl.load(vocabfile)
 
         return vocab_words
 
-    def load_word_to_idxs(self, vocab_path):
+    def load_word_to_idxs(self, vocab_dir):
 
-        with open(os.path.join(vocab_path, 'words_to_idxs.pkl'), 'rb') as vocabfile:
+        with open(os.path.join(vocab_dir, 'words_to_idxs.pkl'), 'rb') as vocabfile:
             word_dict = pkl.load(vocabfile)
 
         return word_dict
