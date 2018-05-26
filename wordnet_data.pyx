@@ -17,12 +17,9 @@ import cupy as cp
 
 import pandas as pd
 import pickle as pkl
-import os
-import copy
-from sampling import get_sample
+
 
 from collections import Counter
-import random
 
 # pylint: disable=redefined-builtin
 
@@ -109,11 +106,7 @@ cdef class Options(object):
         
   cpdef np.ndarray init_sample_table(self):
       cdef size_t i
-      # cpdef dict sample_table = {}
-      #return np.arange(len(self.vocabulary))
       return np.array([self.train_data[i][0] for i in range(len(self.train_data))] + [self.train_data[i][1] for i in range(len(self.train_data))])
-      # for i in range(self.vocabulary_size):
-      #     sample_table[i] = np.array(list(self.indices_set - self.relations_dict[i])
 
   cpdef tuple generate_batch(self, int batch_size, int num_neg):
     cdef np.ndarray[np.int_t, ndim = 2] data
@@ -129,10 +122,8 @@ cdef class Options(object):
     for i in range(batch_size):
         pos_u[i] = data[(self.data_index + i) % len(data)][0]
         pos_v[i] = data[(self.data_index + i) % len(data)][1]
-        # neg_samples = self._sample_negatives(pos_u[i], num_neg)
         for j in range(num_neg):
             neg_u[i*num_neg + j] = pos_u[i]
-            # neg_v[i*num_neg + j] = neg_samples[j]
 
             
     self.data_index += batch_size
@@ -142,65 +133,12 @@ cdef class Options(object):
         self.data_index = 0
         self.sample_n = 0
         self.process = False 
-        
-#    neg_v = get_sample(self.sample_table, arr_len = self.table_size, n_iter = self.sample_n,
-#                              sample_size = num_neg * batch_size, fast = True)
+
     neg_v = self.sample_table[np.random.randint(self.table_size, size=num_neg * batch_size)]
     neg_v = self.resample_positives(neg_v, neg_u)
-    
-    # self.sample_n += 1
 
     return cp.array(pos_u), cp.array(pos_v), cp.array(neg_u), cp.array(neg_v)
 
-  cdef list _sample_negatives(self, long node_index, int num_neg):
-    """Return a sample of negatives for the given node.
-    Parameters
-    ----------
-    node_index : int
-        Index of the positive node for which negative samples are to be returned.
-    Returns
-    -------
-    numpy.array
-        Array of shape (self.negative,) containing indices of negative nodes for the given node index.
-    """
-
-    cpdef set node_relations, unique_indices
-    cpdef np.ndarray indices, valid_negatives, probs
-    cpdef int num_remaining_nodes
-
-    node_relations = self.relations_dict[node_index]
-    num_remaining_nodes = self.vocabulary_size - len(node_relations)
-
-    if num_remaining_nodes < num_neg:
-            raise ValueError(
-                'Cannot sample %d negative nodes from a set of %d negative nodes for %s' %
-                (self.negative, num_remaining_nodes, self.kv.index2word[node_index])
-            )
-
-    positive_fraction = float(len(node_relations)) / self.vocabulary_size
-    if positive_fraction < 1:
-        # If number of positive relations is a small fraction of total nodes
-        # re-sample till no positively connected nodes are chosen
-        # indices = np.random.choice(self.sample_table, replace=False, size=num_neg)
-        indices = self.sample_table[np.random.randint(self.table_size, size=num_neg)]
-        unique_indices = set(indices)
-        times_sampled = 1
-        while (unique_indices & node_relations):
-            times_sampled += 1
-            indices = self.sample_table[np.random.randint(self.table_size, size=num_neg)]   
-            unique_indices = set(indices)
-        # if times_sampled > 1:
-            # print('Sampled %d times, positive fraction %.5f', times_sampled, positive_fraction)
-    else:
-        print("Sampling positives only")
-        # If number of positive relations is a significant fraction of total nodes
-        # subtract positively connected nodes from set of choices and sample from the remaining
-        valid_negatives = np.array(list(self.indices_set - node_relations))
-        probs = self._node_probabilities[valid_negatives]
-        probs /= probs.sum()
-        indices = np.random.choice(valid_negatives, size=num_neg, p=probs, replace=False)
-
-    return list(indices)
 
   cdef np.ndarray resample_positives(self, np.ndarray neg_v, np.ndarray neg_u):
       cdef size_t i

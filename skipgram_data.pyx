@@ -7,6 +7,7 @@
 cimport cython
 from libc.math cimport sqrt
 import logging
+import sys
 
 import tqdm
 
@@ -117,27 +118,41 @@ cdef class Options(object):
     cpdef list lines
     cpdef str filename
     count = Counter()
-    translator = str.maketrans('', '', string.punctuation)
     
     for filename in filenames:
         i = 0
-        
-        with open(filename, 'rt', errors='surrogateescape') as f:
-            
-            while True:
-                lines = list(islice(f, self.chunk_size))
-                if not lines:
-                    break
-                
-                #chunk = (' '.join([line for line in lines if not line.startswith(b'CURRENT URL')])).translate(None, string.punctuation).lower().split()
-                chunk = (' '.join([line for line in lines if not line.startswith('CURRENT URL')])).translate(translator).lower().split()
-                count.update(chunk)
-                
-                with open(os.path.join(self.save_chunks, filename.split('/')[-1] + "_chunk_" + str(i)), 'wb') as chunk_file:
-                    pkl.dump(chunk, chunk_file)
-                    chunk_files.append(filename.split('/')[-1] + "_chunk_" + str(i))
-                    
-                i += 1
+
+        if sys.version_info[0] >= 3:
+            translator = str.maketrans('', '', string.punctuation)
+            with open(filename, 'rt', errors='surrogateescape') as f:
+
+                while True:
+                    lines = list(islice(f, self.chunk_size))
+                    if not lines:
+                        break
+
+                    chunk = (' '.join([line for line in lines if not line.startswith('CURRENT URL')])).translate(translator).lower().split()
+                    count.update(chunk)
+
+                    with open(os.path.join(self.save_chunks, filename.split('/')[-1] + "_chunk_" + str(i)), 'wb') as chunk_file:
+                        pkl.dump(chunk, chunk_file)
+                        chunk_files.append(filename.split('/')[-1] + "_chunk_" + str(i))
+        else:
+            with open(filename, 'r') as f:
+
+                while True:
+                    lines = list(islice(f, self.chunk_size))
+                    if not lines:
+                        break
+
+                    chunk = (' '.join([line for line in lines if not line.startswith(b'CURRENT URL')])).translate(None, string.punctuation).lower().split()
+                    count.update(chunk)
+
+                    with open(os.path.join(self.save_chunks, filename.split('/')[-1] + "_chunk_" + str(i)), 'wb') as chunk_file:
+                        pkl.dump(chunk, chunk_file)
+                        chunk_files.append(filename.split('/')[-1] + "_chunk_" + str(i))
+
+                    i += 1
         
     logging.info("Done chunkifying")
     return count, chunk_files

@@ -187,3 +187,4 @@ class EllProduct():
             self.c_means[0] *= 0
             self.vars[0] *= 0
             self.c_vars[0] *= 0
+

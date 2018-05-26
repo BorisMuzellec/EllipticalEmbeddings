@@ -103,7 +103,7 @@ Device.use(Device(args.device))
 
 if args.type == 'softmax':
     w_model = EllSoftmax(data.vocabulary_size, args.dim, lr=args.lr, num_neg=args.neg_samples, window_size=2 * args.window_size,
-                         num_sqrt_iters = args.num_sqrt_iters, margin=args.margin, optim = args.optim,
+                         num_sqrt_iters = args.num_sqrt_iters, optim = args.optim,
                          Cn=args.cn, embedding_file=args.embedding_file)
 
 if args.type == 'product':

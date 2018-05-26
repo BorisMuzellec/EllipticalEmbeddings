@@ -9,70 +9,7 @@ Created on Fri Jan 12 10:23:43 2018
 import numpy as np
 import cupy as cp
 
-import chainer
-import chainer.functions as F
 
-
-def wishart(n_points, dim=2, p=5):
-    """
-    Wishart sampling
-    """
-    X = cp.random.randn(n_points, dim, p)
-    return cp.matmul(X, cp.transpose(X, axes=[0, 2, 1]))
-
-
-def sqrtm(U):
-    """
-    Matrix square root
-    """
-    with chainer.no_backprop_mode():
-        vals, vecs = cp.linalg.eigh(U)
-        return F.matmul(cp.multiply(vecs, cp.sqrt(vals)), cp.transpose(vecs))
-
-def Tuv(U, V):
-    """
-    Returns the transportation matrix from N(U) to N(V):
-    V^{1/2}[V^{1/2}UV^{1/2}]^{-1/2}V^{1/2}
-    """
-    xp = cp.get_array_module(U)
-    
-    V_2 = sqrtm(V)
-    mid = sqrtm(xp.linalg.pinv(xp.dot(xp.dot(V_2, U), V_2)))
-    return xp.dot(V_2, xp.dot(mid, V_2))
-
-def log(U, V):
-    """
-    Log map at N(U) of N(V)
-    """
-    xp = cp.get_array_module(U)
-    return Tuv(U, V) - xp.eye(U.shape[0])
-    
-def exp(U, V):
-    """
-    Exponential map at N(U) in the direction of V
-    """
-    xp = cp.get_array_module(U)
-    V_I = V + xp.eye(V.shape[0])
-    return xp.dot(V_I, xp.dot(U, V_I))
-
-def B2(U,V):
-    """
-    Squared Bures distance between psd matrices U and V
-    """
-    xp = cp.get_array_module(U)
-    
-    sU = sqrtm(U)
-    cross = sqrtm(xp.dot(sU, xp.dot(V, sU)))
-    return xp.trace(U + V - 2*cross)
-    
-def W2(m1, m2, U, V, Cn = 1):
-    """
-    Squared Wasserstein distance between N(m1, U) and N(m2, V)
-    """
-    xp = cp.get_array_module(U)
-    
-    return xp.sum((m1 - m2)**2) + Cn * B2(U,V)
-    
 def batch_sqrtm(A, numIters = 20, reg = 2.0):
     """
     Batch matrix root via Newton-Schulz iterations
@@ -101,7 +38,6 @@ def batch_sqrtm(A, numIters = 20, reg = 2.0):
 def batch_bures(U, V, numIters = 20, U_stride=None, sU = None, inv_sU = None, prod = False):
     #Avoid recomputing roots if not necessary
     if sU is None:
-        #NB : if the iterations can be run in parallel this is actually costlier !
         if U_stride is not None:
             sU_, inv_sU_ = batch_sqrtm(U[::U_stride], numIters=numIters)
             sU = sU_.repeat(U_stride, axis=0)
@@ -244,10 +180,3 @@ def sum_by_group(values1, values2, groups):
 
 def symmetrize(M):
     return (M + cp.transpose(M, axes=(0, 2, 1))) / 2.0
-
-def diag_kl(m1, m2, s1, s2):
-    return ((s1/s2 + s2/s1).sum(axis=1)/2.0 + ((m1-m2)**2 / s1).sum(axis=1) + ((m2-m1)**2 / s2).sum(axis=1)) / 2.0 - m1.shape[1]
-
-def diag_asym_kl(m1, m2, s1, s2):
-    return ((s1/s2).sum(axis=1)/2.0 + ((m1-m2)**2 / s2).sum(axis=1) - (cp.log(s1) - cp.log(s2)).sum(axis=1) - m1.shape[1]) / 2.0
-

@@ -12,7 +12,7 @@ import time
 import cupy as cp
 from cupy.cuda import Device
 
-import utils as wr
+import utils as wb
 from product import EllProduct
 from softmax import EllSoftmax
 from wordnet_data import Options
@@ -38,7 +38,7 @@ parser.add_argument('--type', type=str, default = 'product',
 parser.add_argument('--optim', type=str, default = 'rmsprop',
                     help='optimization algorithm')
 parser.add_argument('--learning_rate', '-lr', type = float, dest = 'lr', default = 1E-2)
-parser.add_argument('--final_lr', type = float, default = 1E-2)
+parser.add_argument('--final_lr', type = float, default = 1E-3)
 parser.add_argument('--decay', type = float, default = None)
 parser.add_argument('--margin', type=float, default=1E-1, help='margin in the hinge loss ("product" type only)')
 parser.add_argument('--dim', type = int, dest = 'dim', default = 2, help = 'dimension of the embeddings')
@@ -54,7 +54,6 @@ parser.add_argument('--save_each', type=int, default=5)
 parser.add_argument('--lbda', type=float, default=1E-2)
 parser.add_argument('--cn', type=float, default=1,
                     help = 'the means to Bures coefficient for learning ellipse embeddings')
-parser.add_argument('--no_cuda', action = 'store_true')
 args = parser.parse_args()
 
 FORMAT = '%(asctime)-15s %(message)s'
@@ -133,7 +132,7 @@ for epoch in range(args.epoches):
             moving_average = 0
         n_iter += 1
         total += loss
-    w_model.lr = max(args.final_lr, args.lr - DECAY)
+    w_model.lr = max(args.final_lr, w_model.lr - DECAY)
     end = time.time()
     
     msg = 'Train Epoch: {} \tLoss: {} \t Time: {}'
@@ -143,7 +142,7 @@ for epoch in range(args.epoches):
     if epoch % args.save_each == 0:
         embedds = dict()
         embedds['means'] = cp.asnumpy(w_model.means)
-        embedds['vars'] = cp.asnumpy(wr.to_full(
+        embedds['vars'] = cp.asnumpy(wb.to_full(
             w_model.vars) + args.lbda * cp.eye(args.dim).reshape(1, args.dim, args.dim).repeat(w_model.vars.shape[0],
                                                                                               axis=0))
         embedds['word_to_idx'] = data.word_to_index

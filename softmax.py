@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 class EllSoftmax():
     def __init__(self, n_points, n_dim, lr=1E-1, num_neg=1, window_size=10,
                  num_sqrt_iters=5, Cn=1, lbda = 1E-8,
-                 scale=0.5, embedding_file=None, optim='rmsprop', epsilon=1E-8, unknown_words=True,
+                 scale=1.0, embedding_file=None, optim='sgd', epsilon=1E-8, unknown_words=True,
                  sep_input_output=True):
         self.n_points = n_points
         self.n_dim = n_dim
@@ -46,6 +46,7 @@ class EllSoftmax():
                 self.vars = cp.array(embedds['vars'])
                 self.c_vars = cp.array(embedds['c_vars'])
 
+        # The unknown word should have a 0 embedding
         if self.unknown_words:
             self.means[0] = cp.zeros(n_dim)
             self.c_means[0] = cp.zeros(n_dim)
@@ -53,7 +54,6 @@ class EllSoftmax():
             self.c_vars[0] = cp.zeros((n_dim, n_dim))
 
 
-        # The unknown word should have a 0 embedding
         self.means_adagrad = cp.zeros_like(self.means)
         self.c_means_adagrad = cp.zeros_like(self.c_means)
         self.vars_adagrad = cp.zeros_like(self.vars)
@@ -125,7 +125,7 @@ class EllSoftmax():
                 pos * exp_ij.reshape(-1, 1) + neg.reshape(-1, self.num_neg, self.n_dim).sum(axis=1)) /
                  norm_factor.reshape(-1, 1)).reshape(-1, self.window_size, self.n_dim).sum(axis=1), \
                ( - xi + xi * exp_ij.reshape(-1, 1) / norm_factor.reshape(-1, 1)), \
-               ( + neg_xi * neg_exp.reshape(-1, 1) / norm_factor.repeat(
+               ( neg_xi * neg_exp.reshape(-1, 1) / norm_factor.repeat(
                    self.num_neg).reshape(-1, 1))
 
     #TODO: rename variables neg_i, neg_j, etc.
@@ -150,7 +150,7 @@ class EllSoftmax():
                  norm_factor.reshape(-1, 1, 1)).reshape(-1, self.window_size, self.n_dim, self.n_dim).sum(
                    axis=1), \
                (- pos_j + pos_j * exp_ij.reshape(-1, 1, 1) / norm_factor.reshape(-1, 1, 1)), \
-               (cp.matmul(neg_j_, lneg_vj)) * neg_exp.reshape(-1, 1, 1) / self.norm_factor.repeat(self.num_neg).reshape(-1, 1, 1)
+               cp.matmul(neg_j_, lneg_vj) * neg_exp.reshape(-1, 1, 1) / self.norm_factor.repeat(self.num_neg).reshape(-1, 1, 1)
 
 
     def SGD_update(self, i, j, neg_i, neg_j):
@@ -180,48 +180,38 @@ class EllSoftmax():
 
             self.means_adagrad[i_idxs] += m_grad_i_acc**2
             self.c_means_adagrad[j_idxs] += m_grad_j_acc**2
-            self.c_means_adagrad[neg_j] += m_n_grad_j**2
             self.vars_adagrad[i_idxs] += v_grad_i_acc**2
             self.c_vars_adagrad[j_idxs] += v_grad_j_acc**2
-            self.c_vars_adagrad[neg_j] += v_n_grad_j**2
 
             # Means updates
             self.means[i_idxs] -= self.lr * m_grad_i_acc / cp.sqrt(self.means_adagrad[i_idxs] + self.epsilon)
             self.c_means[j_idxs] -= self.lr * m_grad_j_acc / cp.sqrt(self.c_means_adagrad[j_idxs] + self.epsilon)
-            self.c_means[neg_j] -= self.lr * m_n_grad_j / cp.sqrt(self.c_means_adagrad[neg_j] + self.epsilon)
 
             self.vars[i_idxs] -= self.lr * self.Cn * v_grad_i_acc / cp.sqrt(self.vars_adagrad[i_idxs] + self.epsilon)
             self.c_vars[j_idxs] -= self.lr * self.Cn * v_grad_j_acc / cp.sqrt(self.c_vars_adagrad[j_idxs] + self.epsilon)
-            self.c_vars[neg_j] -= self.lr * self.Cn * v_n_grad_j / cp.sqrt(self.c_vars_adagrad[neg_j] + self.epsilon)
 
         elif self.optim == 'rmsprop':
 
             self.means_adagrad[i_idxs] = 0.9 * self.means_adagrad[i_idxs] + 0.1 * m_grad_i_acc**2
             self.c_means_adagrad[j_idxs] = 0.9 * self.c_means_adagrad[j_idxs] + 0.1 * m_grad_j_acc**2
-            self.c_means_adagrad[neg_j] = 0.9 * self.c_means_adagrad[neg_j] + 0.1 * m_n_grad_j**2
             self.vars_adagrad[i_idxs] = 0.9 * self.vars_adagrad[i_idxs] + 0.1 * v_grad_i_acc**2
             self.c_vars_adagrad[j_idxs] = 0.9 * self.c_vars_adagrad[j_idxs] + 0.1 * v_grad_j_acc**2
-            self.c_vars_adagrad[neg_j] = 0.9 * self.c_vars_adagrad[neg_j] + 0.1 * v_n_grad_j**2
 
             # Means updates
             self.means[i_idxs] -= self.lr * m_grad_i_acc / cp.sqrt(self.means_adagrad[i_idxs] + self.epsilon)
             self.c_means[j_idxs] -= self.lr * m_grad_j_acc / cp.sqrt(self.c_means_adagrad[j_idxs] + self.epsilon)
-            self.c_means[neg_j] -= self.lr * m_n_grad_j / cp.sqrt(self.c_means_adagrad[neg_j] + self.epsilon)
 
             self.vars[i_idxs] -= self.lr * self.Cn * v_grad_i_acc / cp.sqrt(self.vars_adagrad[i_idxs] + self.epsilon)
             self.c_vars[j_idxs] -= self.lr * self.Cn * v_grad_j_acc / cp.sqrt(self.c_vars_adagrad[j_idxs] + self.epsilon)
-            self.c_vars[neg_j] -= self.lr * self.Cn * v_n_grad_j / cp.sqrt(self.c_vars_adagrad[neg_j] + self.epsilon)
 
         elif self.optim == 'sgd':
 
             # Means updates
             self.means[i_idxs] -= self.lr * m_grad_i_acc
             self.c_means[j_idxs] -= self.lr * m_grad_j_acc
-            self.c_means[neg_j] -= self.lr * m_n_grad_j
 
             self.vars[i_idxs] -= self.lr * self.Cn * v_grad_i_acc
             self.c_vars[j_idxs] -= self.lr * self.Cn * v_grad_j_acc
-            self.c_vars[neg_j] -= self.lr * self.Cn * v_n_grad_j
 
         if self.unknown_words:
             self.means[0] = cp.zeros(self.n_dim)

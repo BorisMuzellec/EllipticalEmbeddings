@@ -112,9 +112,6 @@ def calculate_correlation(data_loader, w2g, verbose=True, lower=False, metric='b
             scores = wb.bures_cosine(w2g.means[word1_idxs], w2g.means[word2_idxs], w2g.vars[word1_idxs], w2g.vars[word2_idxs], numIters=numIters)
         elif metric == 'bures_product':
             scores = wb.batch_W2(w2g.means[word1_idxs], w2g.means[word2_idxs], w2g.vars[word1_idxs], w2g.vars[word2_idxs], prod=True, numIters=numIters)[0]
-        elif metric == 'kl':
-            scores = -wb.diag_kl(w2g.means[word1_idxs], w2g.means[word2_idxs], w2g.vars[word1_idxs],
-                                 w2g.vars[word2_idxs])
     else:
 
         if metric == 'bures_distance':
@@ -126,9 +123,6 @@ def calculate_correlation(data_loader, w2g, verbose=True, lower=False, metric='b
             scores = \
             wb.batch_W2(w2g.c_means[word1_idxs], w2g.c_means[word2_idxs], w2g.c_vars[word1_idxs], w2g.c_vars[word2_idxs],
                         prod=True, numIters=numIters)[0]
-        elif metric == 'kl':
-            scores = -wb.batch_kl(w2g.c_means[word1_idxs], w2g.c_means[word2_idxs], w2g.c_vars[word1_idxs],
-                                  w2g.c_vars[word2_idxs])
 
     scores = cp.asnumpy(scores)
     spr = scipy.stats.spearmanr(scores, targets)
