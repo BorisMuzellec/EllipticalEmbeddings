@@ -9,6 +9,13 @@ Created on Fri Jan 12 10:23:43 2018
 import numpy as np
 import cupy as cp
 
+def wishart(n_points, dim=2, p=5):
+    """
+    Wishart sampling
+    """
+    X = cp.random.randn(n_points, dim, p)
+    return cp.matmul(X, cp.transpose(X, axes=[0, 2, 1]))
+
 
 def batch_sqrtm(A, numIters = 20, reg = 2.0):
     """
