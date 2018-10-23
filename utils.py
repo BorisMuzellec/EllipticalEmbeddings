@@ -155,7 +155,7 @@ def diag_cosine(m1, m2, U1, U2):
     """
     Only used for benchmarking Vilnis & McCallum's embeddings
     """
-    return (m1 * m2).sum(axis=1) / (cp.linalg.norm(m1, axis=1) * cp.linalg.norm(m2, axis=1) + 1E-4) + (U1 * U2).sum(axis=1) / cp.sqrt((cp.linalg.norm(U1, axis=1) * cp.linalg.norm(U2, axis=1)) + 1E-8)
+    return ((m1 * m2).sum(axis=1) + (U1 * U2).sum(axis=1)) / ((cp.linalg.norm(m1, axis=1) + cp.linalg.norm(U1, axis=1)) * (cp.linalg.norm(U2, axis=1) + cp.linalg.norm(m2, axis=1)))
 
 
 def bures_cosine(m1, m2, U, V, Cn = 1, numIters = 20):
@@ -164,9 +164,19 @@ def bures_cosine(m1, m2, U, V, Cn = 1, numIters = 20):
     """
     bb = batch_bures(U, V, numIters = numIters, prod=True)[0]
 
+    return ((m1*m2).sum(axis=1) + Cn * bb) / cp.sqrt((cp.linalg.norm(m1, axis=1)**2 + Cn * cp.trace(U, axis1=1, axis2=2) + 1E-8) * (cp.linalg.norm(m2, axis=1)**2 + Cn * cp.trace(V, axis1=1, axis2=2) + 1E-8))
+
+
+def sum_cosine(m1, m2, U, V, Cn = 1, numIters = 20):
+    """
+    Squared Wasserstein distance between N(m1, U) and N(m2, V)
+    """
+    bb = batch_bures(U, V, numIters = numIters, prod=True)[0]
+    #print cp.mean(bb)
+    #print cp.mean((m1*m2).sum(axis=1))
+
     return (m1*m2).sum(axis=1) / (cp.linalg.norm(m1, axis=1) * cp.linalg.norm(m2, axis=1) + 1E-8)\
            + Cn * bb / cp.sqrt((cp.trace(U, axis1=1, axis2=2) * cp.trace(V, axis1=1, axis2=2)) + 1E-8)
-
 
 def sum_by_group(values1, values2, groups):
     order = cp.argsort(groups)
