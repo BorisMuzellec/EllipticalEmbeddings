@@ -33,7 +33,7 @@ parser = argparse.ArgumentParser(description='Train a skipgram ellipse embedding
 parser.add_argument('--data', '-d', type = str, help = 'the data to train the model')
 parser.add_argument('--output', '-o', type = str,
                     help = 'folder where to save the results')
-parser.add_argument('--type', type=str, default = 'product',
+parser.add_argument('--type', type=str, default = 'softmax',
                     help='which loss function?')
 parser.add_argument('--optim', type=str, default = 'rmsprop',
                     help='optimization algorithm')
@@ -96,9 +96,9 @@ with open(os.path.join(args.output, 'parameter_summary'), 'w') as summary_file:
         summary_file.write(str(arg) + " : " + str(getattr(args, arg)) + "\n")
 
 
-def worker(embedd_file, max_n=1000):
+def worker(embedd_file, max_n=1000, num_devices = 11):
     """Rank and MAP evaluation worker"""
-    os.system("python -W ignore wordnet_evaluation.py -e %s -d %s --device %u --max_n %u" % (embedd_file, args.data, (args.device + 1), max_n))
+    os.system("python -W ignore wordnet_evaluation.py -e %s -d %s --device %u --max_n %u" % (embedd_file, args.data, ((args.device + 1) % 11), max_n))
     return
 logging.info("Start training")
 
