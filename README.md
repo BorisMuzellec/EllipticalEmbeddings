@@ -4,8 +4,6 @@ This repository contains Python code for computing embeddings in the Wasserstein
 
 >[Boris Muzellec and Marco Cuturi, *Generalizing Point Embeddings using the Wasserstein Space of Elliptical Distributions*](https://arxiv.org/abs/1805.07594)
 
-While the code it contains is functional and allows to reproduce results form the paper, it is still under the process of being refactored. A final version will be made available shortly.
-
 ## Dependencies
 
 `python 2.7.5, cupy, cython `
