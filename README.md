@@ -14,7 +14,7 @@ The skipgram model presented in the paper was trained on a concatenation of ukWa
 
 We use all words appearing more than 100 times after tokenization (this is customisable).
 
-The wordnet dataset can be obtained from `nltk`. The extraction of the hypernymy transitive closure can be performed using code from the Poincaré embeddings[repository](https://github.com/facebookresearch/poincare-embeddings/tree/master/wordnet).
+The wordnet dataset can be obtained from `nltk`. The extraction of the hypernymy transitive closure can be performed using code from the Poincaré embeddings [repository](https://github.com/facebookresearch/poincare-embeddings/tree/master/wordnet).
 
 ## Usage
 
